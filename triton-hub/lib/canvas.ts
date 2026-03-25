@@ -1,3 +1,4 @@
+import { toCanvasProxyUrl } from './canvas-proxy-url';
 
 const CANVAS_UCSD_URL = 'https://canvas.ucsd.edu';
 
@@ -7,20 +8,10 @@ export async function syncCanvasData(accessToken: string, canvasUrl: string = CA
     const getCanvasApiBase = (url: string) => url.replace(/\/$/, '');
     const base = getCanvasApiBase(canvasUrl);
 
-    const toProxyUrl = (url: string) => {
-        if (process.env.NODE_ENV !== 'development' || !url.includes('canvas.ucsd.edu')) return url;
-        try {
-            const u = new URL(url);
-            return `/canvas-api${u.pathname}${u.search}`;
-        } catch {
-            return url;
-        }
-    };
-
     const headers = { Authorization: `Bearer ${accessToken}` };
 
     // 1. Fetch Courses
-    const coursesUrl = toProxyUrl(`${base}/api/v1/courses?include[]=total_scores&include[]=teachers&include[]=term&include[]=enrollments&enrollment_type=student&enrollment_state=active&per_page=50`);
+    const coursesUrl = toCanvasProxyUrl(`${base}/api/v1/courses?include[]=total_scores&include[]=teachers&include[]=term&include[]=enrollments&enrollment_type=student&enrollment_state=active&per_page=50`);
     const coursesRes = await fetch(coursesUrl, { headers });
 
     if (!coursesRes.ok) throw new Error(`Canvas API error: ${coursesRes.status}`);
@@ -41,13 +32,13 @@ export async function syncCanvasData(accessToken: string, canvasUrl: string = CA
 
     // 2. Fetch Assignments & Announcements
     const assignmentPromises = filteredCourses.map(async (course: any) => {
-        const url = toProxyUrl(`${base}/api/v1/courses/${course.id}/assignments?include[]=submission&per_page=50&order_by=due_at`);
+        const url = toCanvasProxyUrl(`${base}/api/v1/courses/${course.id}/assignments?include[]=submission&per_page=50&order_by=due_at`);
         const res = await fetch(url, { headers });
         return res.ok ? await res.json() : [];
     });
 
     const annPromises = filteredCourses.map(async (course: any) => {
-        const url = toProxyUrl(`${base}/api/v1/announcements?context_codes[]=course_${course.id}&per_page=10`);
+        const url = toCanvasProxyUrl(`${base}/api/v1/announcements?context_codes[]=course_${course.id}&per_page=10`);
         const res = await fetch(url, { headers });
         return res.ok ? await res.json() : [];
     });

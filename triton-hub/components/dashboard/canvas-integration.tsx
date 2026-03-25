@@ -85,8 +85,8 @@ export function CanvasIntegration() {
     const getApiBase = () => {
         const normalized = canvasUrl.replace(/\/$/, '');
         const isUcsd = normalized === CANVAS_UCSD_URL || normalized.includes('canvas.ucsd.edu');
-        // Use proxy in development for UCSD to avoid CORS
-        if (isUcsd && process.env.NODE_ENV === 'development') {
+        // Same-origin proxy (next.config rewrite) — required in production (Canvas blocks cross-origin browser fetches)
+        if (isUcsd) {
             return '/canvas-api';
         }
         return normalized;

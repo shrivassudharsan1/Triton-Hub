@@ -1,20 +1,9 @@
 import type { Notification } from "./types";
+import { toCanvasProxyUrl } from "./canvas-proxy-url";
 
 const TOKEN_STORAGE_KEY = "canvas_token";
 const URL_STORAGE_KEY = "canvas_url";
 const DEFAULT_CANVAS_URL = "https://canvas.ucsd.edu";
-
-function toProxyUrl(url: string): string {
-  if (process.env.NODE_ENV !== "development" || !url.includes("canvas.ucsd.edu")) {
-    return url;
-  }
-  try {
-    const u = new URL(url);
-    return `/canvas-api${u.pathname}${u.search}`;
-  } catch {
-    return url;
-  }
-}
 
 function getCanvasApiBase(url: string): string {
   return url.replace(/\/$/, "");
@@ -73,7 +62,7 @@ export async function fetchCanvasMergeNotifications(): Promise<Notification[]> {
   const base = getCanvasApiBase(canvasUrl);
   const headers = { Authorization: `Bearer ${accessToken}` };
 
-  const coursesUrl = toProxyUrl(
+  const coursesUrl = toCanvasProxyUrl(
     `${base}/api/v1/courses?include[]=total_scores&include[]=teachers&include[]=term&include[]=enrollments&enrollment_type=student&enrollment_state=active&per_page=50`
   );
   const coursesRes = await fetch(coursesUrl, { headers });
@@ -99,7 +88,7 @@ export async function fetchCanvasMergeNotifications(): Promise<Notification[]> {
     : courses;
 
   const assignmentPromises = filteredCourses.map(async (course: any) => {
-    const url = toProxyUrl(
+    const url = toCanvasProxyUrl(
       `${base}/api/v1/courses/${course.id}/assignments?include[]=submission&per_page=50&order_by=due_at`
     );
     const res = await fetch(url, { headers });
@@ -107,7 +96,7 @@ export async function fetchCanvasMergeNotifications(): Promise<Notification[]> {
   });
 
   const annPromises = filteredCourses.map(async (course: any) => {
-    const url = toProxyUrl(
+    const url = toCanvasProxyUrl(
       `${base}/api/v1/announcements?context_codes[]=course_${course.id}&per_page=10`
     );
     const res = await fetch(url, { headers });

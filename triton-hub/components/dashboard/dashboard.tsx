@@ -13,6 +13,7 @@ import { format } from "date-fns";
 import { ChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabase";
+import { hydrateCanvasTokenFromSupabase } from "@/lib/canvas-setup";
 import { fetchAndTransformNotifications } from "@/lib/notifications";
 import { syncCanvasData } from "@/lib/canvas";
 import { toast } from "sonner";
@@ -54,6 +55,10 @@ export function Dashboard() {
         setUpdates([]);
         setClasses([]);
         return;
+      }
+
+      if (session) {
+        await hydrateCanvasTokenFromSupabase(session.user.id);
       }
 
       const notificationUpdates = await fetchAndTransformNotifications();
