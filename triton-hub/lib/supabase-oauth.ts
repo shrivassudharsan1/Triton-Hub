@@ -3,6 +3,9 @@ import { supabase } from "@/lib/supabase";
 /**
  * Public URL of the Next app (no trailing slash). Set on Vercel to your production
  * domain so OAuth never falls back to Supabase "Site URL" when it is still localhost.
+ *
+ * Supabase must allow `redirect_to`: add `${origin}/auth/callback` under Authentication → Redirect URLs
+ * and set Site URL to the same production origin.
  */
 function getOAuthRedirectOrigin(): string {
   if (typeof window === "undefined") return "";
