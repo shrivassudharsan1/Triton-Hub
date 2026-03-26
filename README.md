@@ -1,97 +1,68 @@
-# Canvas – UCSD Grades, Assignments & Announcements
+# Triton-Hub
 
-View your UCSD Canvas grades, assignments (due/incomplete and completed), and announcements. Use either **Log in with Canvas** (OAuth) or paste a manual access token.
+<img width="1512" height="820" alt="image" src="https://github.com/user-attachments/assets/52664a68-e5ac-4c13-9bcc-74cf445553e2" />
 
-## Quick start
-
-1. **Manual token (no setup)**  
-   Run `npm run dev`, open the app, then go to [Canvas → Settings → Approved Integrations](https://canvas.ucsd.edu/profile/settings) and create a new access token. Paste the token (and Canvas URL) in the form.
-
-2. **Log in with Canvas (OAuth)**  
-   You need a Canvas Developer Key from your institution (e.g. UCSD admin). Then:
-
-   - Copy `.env.example` to `.env` and set:
-     - `CANVAS_CLIENT_ID` – Developer Key client ID  
-     - `CANVAS_CLIENT_SECRET` – Developer Key client secret  
-     - `CANVAS_BASE_URL` – e.g. `https://canvas.ucsd.edu`  
-     - `OAUTH_REDIRECT_URI` – e.g. `http://localhost:5173/oauth/callback`  
-   - In the Canvas Developer Key settings, add that exact redirect URI.
-   - Run the OAuth server: `npm run server` (in one terminal).
-   - Run the app: `npm run dev` (in another terminal).
-   - Click **Log in with Canvas** and complete the login; the app will receive the access token.
+A full-stack web application that aggregates **Canvas** and **Gmail** data into a unified student dashboard — with an integrated LLM layer that intelligently parses and surfaces the most relevant information.
 
 ---
 
-# React + TypeScript + Vite
+## Features
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+- 📚 View UCSD Canvas grades, assignments (due/incomplete and completed), and announcements
+- 📧 Gmail integration with smart email filtering
+- 🤖 **LLM-powered data parsing** — intelligently processes and structures Canvas and Gmail data for better readability and prioritization
+- 🔐 OAuth and manual token authentication support
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## My Contribution
 
-## React Compiler
+I integrated a large language model (LLM) pipeline into the backend to parse and interpret raw Canvas and Gmail API responses. Rather than displaying raw data, the LLM layer:
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- Extracts actionable insights from assignment descriptions and announcements
+- Filters and ranks emails by relevance using a deterministic pre-filter before passing to the model (reducing unnecessary API calls)
+- Structures unstructured data into clean, student-friendly summaries
 
-## Expanding the ESLint configuration
+---
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## Quick Start
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+### Manual Token (no setup)
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+1. Run `npm run dev`
+2. Go to **Canvas → Settings → Approved Integrations** and create a new access token
+3. Paste the token (and Canvas URL) into the app
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+### Log in with Canvas (OAuth)
+
+You'll need a Canvas Developer Key from your institution (e.g. UCSD admin).
+
+1. Copy `.env.example` to `.env` and configure:
 ```
+   CANVAS_CLIENT_ID=<Developer Key client ID>
+   CANVAS_CLIENT_SECRET=<Developer Key client secret>
+   CANVAS_BASE_URL=https://canvas.ucsd.edu
+   OAUTH_REDIRECT_URI=http://localhost:5173/oauth/callback
+```
+2. Add the redirect URI to your Canvas Developer Key settings
+3. Start the OAuth server: `npm run server`
+4. Start the app: `npm run dev`
+5. Click **Log in with Canvas** and complete the flow
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+---
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## Tech Stack
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+- **Frontend:** React + TypeScript + Vite
+- **Backend:** Python (LLM integration), Node.js (OAuth server)
+- **APIs:** Canvas LMS API, Gmail API
+- **LLM:** Integrated for intelligent data parsing and summarization
+
+---
+
+## Project Structure
+```
+├── frontend/       # React + TypeScript UI
+├── backend/        # Python LLM pipeline + API handlers
+└── triton-hub/     # Core application logic
 ```
