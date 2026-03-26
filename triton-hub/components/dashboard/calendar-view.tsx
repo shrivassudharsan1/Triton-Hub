@@ -149,7 +149,7 @@ export function CalendarView() {
   const loadEvents = useCallback(async () => {
     setLoading(true);
     try {
-      const notifications = await fetchNotifications();
+      const { notifications } = await fetchNotifications();
 
       const assignmentNotifs = notifications.filter(
         (n: Notification) => n.category === "assignment"

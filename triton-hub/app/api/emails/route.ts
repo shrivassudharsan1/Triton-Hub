@@ -41,16 +41,40 @@ async function refreshGoogleAccessToken(refreshToken: string): Promise<string | 
   return typeof data.access_token === "string" ? data.access_token : null;
 }
 
-async function fetchInboxWithAccessToken(accessToken: string) {
-  const listRes = await fetch(
-    "https://gmail.googleapis.com/gmail/v1/users/me/messages?labelIds=INBOX&maxResults=25",
-    { headers: { Authorization: `Bearer ${accessToken}` } }
-  );
+async function fetchMessageList(
+  accessToken: string,
+  listUrl: string
+): Promise<{ ok: boolean; status: number; ids: string[] }> {
+  const listRes = await fetch(listUrl, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
   if (!listRes.ok) {
-    return { ok: false as const, status: listRes.status, emails: [] as EmailRow[] };
+    return { ok: false, status: listRes.status, ids: [] };
   }
   const listData = (await listRes.json()) as GmailMessageList;
   const ids = (listData.messages ?? []).map((m) => m.id).filter(Boolean);
+  return { ok: true, status: 200, ids };
+}
+
+async function fetchInboxWithAccessToken(accessToken: string) {
+  const inboxUrl =
+    "https://gmail.googleapis.com/gmail/v1/users/me/messages?labelIds=INBOX&maxResults=25";
+  const primary = await fetchMessageList(accessToken, inboxUrl);
+  if (!primary.ok) {
+    return { ok: false as const, status: primary.status, emails: [] as EmailRow[] };
+  }
+
+  let ids = primary.ids;
+  if (ids.length === 0) {
+    const qUrl = encodeURIComponent("is:inbox");
+    const fallbackUrl = `https://gmail.googleapis.com/gmail/v1/users/me/messages?q=${qUrl}&maxResults=25`;
+    const fallback = await fetchMessageList(accessToken, fallbackUrl);
+    if (!fallback.ok) {
+      return { ok: false as const, status: fallback.status, emails: [] as EmailRow[] };
+    }
+    ids = fallback.ids;
+  }
+
   if (ids.length === 0) {
     return { ok: true as const, status: 200, emails: [] as EmailRow[] };
   }
@@ -149,6 +173,28 @@ async function handleEmails(request: Request) {
     (session.provider_refresh_token && session.provider_refresh_token.trim()) ||
     null;
 
+  let profileSchemaOutdated = false;
+  if (sessionRefresh) {
+    const { error: persistErr } = await supabase
+      .from("profiles")
+      .update({
+        google_refresh_token: sessionRefresh,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", session.user.id);
+    if (persistErr) {
+      const msg = persistErr.message || "";
+      const code = (persistErr as { code?: string }).code;
+      if (
+        code === "42703" ||
+        /google_refresh_token/i.test(msg) ||
+        /does not exist/i.test(msg)
+      ) {
+        profileSchemaOutdated = true;
+      }
+    }
+  }
+
   if (!accessToken && sessionRefresh) {
     accessToken = await refreshGoogleAccessToken(sessionRefresh);
   }
@@ -166,6 +212,14 @@ async function handleEmails(request: Request) {
   }
 
   if (!accessToken) {
+    if (profileSchemaOutdated) {
+      return NextResponse.json({
+        emails: [],
+        error: "schema_outdated",
+        message:
+          "Add column google_refresh_token to public.profiles (run supabase/gmail_refresh_token.sql in the Supabase SQL editor), then reload.",
+      });
+    }
     return NextResponse.json({
       emails: [],
       error: "no_provider_token",

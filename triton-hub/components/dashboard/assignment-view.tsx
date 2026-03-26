@@ -55,7 +55,7 @@ export function AssignmentView() {
             setError(null);
 
             try {
-                const notifications = await fetchNotifications();
+                const { notifications } = await fetchNotifications();
 
                 // Filter for assignments only
                 const assignmentNotifs = notifications.filter(

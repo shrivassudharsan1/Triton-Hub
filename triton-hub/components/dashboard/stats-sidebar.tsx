@@ -18,7 +18,7 @@ export function StatsSidebar() {
   useEffect(() => {
     const loadStats = async () => {
       try {
-        const updates = await fetchAndTransformNotifications();
+        const { updates } = await fetchAndTransformNotifications();
         const now = new Date();
 
         setStats({

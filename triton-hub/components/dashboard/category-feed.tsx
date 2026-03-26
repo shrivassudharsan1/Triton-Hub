@@ -23,7 +23,7 @@ export function CategoryFeed({ category, title, description }: CategoryFeedProps
   const loadNotifications = useCallback(async () => {
     setIsLoading(true);
     try {
-      const allUpdates = await fetchAndTransformNotifications();
+      const { updates: allUpdates } = await fetchAndTransformNotifications();
       // Filter by category, mapping "personal" to "event" as done in notifications.ts
       const filtered = allUpdates.filter((u) => u.category === category);
       setUpdates(filtered);

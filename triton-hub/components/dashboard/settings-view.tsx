@@ -224,7 +224,10 @@ export function SettingsView() {
               </Button>
             ))}
           </div>
-          <p className="text-xs text-muted-foreground">Applies to announcements, assignments, and calendar views.</p>
+          <p className="text-xs text-muted-foreground">
+            Applies to announcements, assignments, and calendar views. &quot;Show canvas only&quot; hides Gmail-merged
+            items from your feed.
+          </p>
         </div>
         <Button type="button" className="rounded-full px-5" onClick={handleSaveContent}>Save content preferences</Button>
       </section>

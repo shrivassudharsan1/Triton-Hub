@@ -19,48 +19,72 @@ export type InboxEmailFetchResult = {
   message?: string;
 };
 
+async function postInboxEmailsOnce(): Promise<InboxEmailFetchResult> {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  const res = await fetch("/api/emails", {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      provider_token: session?.provider_token ?? null,
+      provider_refresh_token: session?.provider_refresh_token ?? null,
+    }),
+  });
+  if (!res.ok) {
+    if (res.status === 401) {
+      return {
+        emails: [],
+        error: "unauthorized",
+        message: "Please sign in with Google to view emails",
+      };
+    }
+    return { emails: [] };
+  }
+  const data = (await res.json()) as {
+    emails?: unknown;
+    error?: string;
+    message?: string;
+  };
+  return {
+    emails: Array.isArray(data.emails) ? (data.emails as BackendEmailItem[]) : [],
+    error: typeof data.error === "string" ? data.error : undefined,
+    message: typeof data.message === "string" ? data.message : undefined,
+  };
+}
+
 /**
  * Loads inbox via POST /api/emails with Google tokens from the browser session.
  * Server cookie session often omits provider_token; the client must send it.
+ * Runs initialize(), then retries once after refreshSession() if Gmail tokens are still missing.
  */
 export async function fetchInboxEmailsFromApi(): Promise<InboxEmailFetchResult> {
+  if (typeof window === "undefined") {
+    return { emails: [] };
+  }
   try {
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    const res = await fetch("/api/emails", {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        provider_token: session?.provider_token ?? null,
-        provider_refresh_token: session?.provider_refresh_token ?? null,
-      }),
-    });
-    if (!res.ok) {
-      if (res.status === 401) {
-        return {
-          emails: [],
-          error: "unauthorized",
-          message: "Please sign in with Google to view emails",
-        };
-      }
-      return { emails: [] };
+    await supabase.auth.initialize();
+    let result = await postInboxEmailsOnce();
+
+    if (
+      result.emails.length === 0 &&
+      result.error === "no_provider_token"
+    ) {
+      await supabase.auth.refreshSession();
+      result = await postInboxEmailsOnce();
     }
-    const data = (await res.json()) as {
-      emails?: unknown;
-      error?: string;
-      message?: string;
-    };
-    return {
-      emails: Array.isArray(data.emails) ? (data.emails as BackendEmailItem[]) : [],
-      error: typeof data.error === "string" ? data.error : undefined,
-      message: typeof data.message === "string" ? data.message : undefined,
-    };
+
+    return result;
   } catch {
     return { emails: [] };
   }
 }
+
+export type FetchNotificationsResult = {
+  notifications: Notification[];
+  inbox: InboxEmailFetchResult;
+};
 
 function getBackendSessionToken(): string | null {
   if (typeof sessionStorage === "undefined") return null;
@@ -119,8 +143,9 @@ function mergeRawEmailsIntoNotifications(rows: Notification[], emails: BackendEm
  * Fetch notifications for the current authenticated user.
  * Uses Supabase session when signed in with email/password, or backend session token when signed in with Google OAuth.
  */
-export async function fetchNotifications(): Promise<Notification[]> {
+export async function fetchNotifications(): Promise<FetchNotificationsResult> {
   let rows: Notification[] = [];
+  const emptyInbox: InboxEmailFetchResult = { emails: [] };
 
   const { data: { session } } = await supabase.auth.getSession();
   if (session) {
@@ -152,23 +177,24 @@ export async function fetchNotifications(): Promise<Notification[]> {
     }
   }
 
-  rows = mergeRawEmailsIntoNotifications(
-    rows,
-    (await fetchInboxEmailsFromApi()).emails
-  );
+  const inbox =
+    typeof window !== "undefined"
+      ? await fetchInboxEmailsFromApi()
+      : emptyInbox;
+  rows = mergeRawEmailsIntoNotifications(rows, inbox.emails);
 
   if (typeof window !== "undefined") {
     try {
       const { fetchCanvasMergeNotifications, mergeNotificationsDedupe } = await import("./canvas-feed");
       const canvas = await fetchCanvasMergeNotifications();
       const merged = mergeNotificationsDedupe(rows, canvas);
-      return applySourceFilter(merged);
+      return { notifications: applySourceFilter(merged), inbox };
     } catch {
-      return applySourceFilter(rows);
+      return { notifications: applySourceFilter(rows), inbox };
     }
   }
 
-  return rows;
+  return { notifications: rows, inbox };
 }
 
 function applySourceFilter(rows: Notification[]): Notification[] {
@@ -285,9 +311,12 @@ export function transformToUpdates(notifications: Notification[]): Update[] {
 /**
  * Fetch notifications and transform them to Update[] format in one call.
  */
-export async function fetchAndTransformNotifications(): Promise<Update[]> {
-  const notifications = await fetchNotifications();
-  return transformToUpdates(notifications);
+export async function fetchAndTransformNotifications(): Promise<{
+  updates: Update[];
+  inbox: InboxEmailFetchResult;
+}> {
+  const { notifications, inbox } = await fetchNotifications();
+  return { updates: transformToUpdates(notifications), inbox };
 }
 
 /**

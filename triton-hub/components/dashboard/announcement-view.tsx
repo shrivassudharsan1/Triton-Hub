@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Loader2, Megaphone, ExternalLink, Check } from "lucide-react";
-import { fetchInboxEmailsFromApi, fetchNotifications } from "@/lib/notifications";
+import { fetchNotifications } from "@/lib/notifications";
 import { format } from "date-fns";
 import type { Notification } from "@/lib/types";
 import type { DataOrigin } from "@/lib/notification-origin";
@@ -47,7 +47,7 @@ export function AnnouncementView() {
             setError(null);
 
             try {
-                const notifications = await fetchNotifications();
+                const { notifications } = await fetchNotifications();
 
                 // Filter for announcements only
                 const announcementNotifs = notifications.filter(
@@ -65,33 +65,6 @@ export function AnnouncementView() {
                     htmlUrl: n.link !== "EMPTY" ? n.link : "",
                     dataOrigin: getNotificationDataOrigin(n),
                 }));
-
-                // Also merge inbox emails so users can immediately see email-origin updates
-                // even before the Gmail->notifications pipeline has inserted DB rows.
-                try {
-                    const { emails: emailList } = await fetchInboxEmailsFromApi();
-                    const emailItems: AnnouncementItem[] = emailList.map((e) => ({
-                        id: `email-${e.id}`,
-                        title: e.subject || "(No Subject)",
-                        message: e.snippet || "",
-                        postedAt: e.date,
-                        courseName: parseFromField(e.from),
-                        courseCode: "EMAIL",
-                        htmlUrl: "",
-                        dataOrigin: "email",
-                    }));
-
-                    const seenTitles = new Set(items.map((i) => i.title.trim().toLowerCase()));
-                    for (const emailItem of emailItems) {
-                        const k = emailItem.title.trim().toLowerCase();
-                        if (!seenTitles.has(k)) {
-                            items.push(emailItem);
-                            seenTitles.add(k);
-                        }
-                    }
-                } catch {
-                    // Non-fatal: announcements can still render from notifications rows.
-                }
 
                 // Sort by postedAt descending (newest first)
                 items.sort((a, b) => {
@@ -115,13 +88,6 @@ export function AnnouncementView() {
     const formatDate = (dateStr: string | null) => {
         if (!dateStr) return 'Unknown date';
         return format(new Date(dateStr), 'MMM d, h:mm a');
-    };
-
-    const parseFromField = (from: string): string => {
-        if (!from) return "Unknown";
-        const match = from.match(/^(.+?)\s*<.+>$/);
-        if (match) return match[1].replace(/"/g, "");
-        return from;
     };
 
     const toggleRead = (id: string) => {

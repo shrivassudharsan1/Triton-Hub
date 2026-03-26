@@ -63,8 +63,25 @@ export function Dashboard() {
         await syncGmailRefreshTokenToProfile();
       }
 
-      const notificationUpdates = await fetchAndTransformNotifications();
+      const { updates: notificationUpdates, inbox } = await fetchAndTransformNotifications();
       setUpdates(notificationUpdates);
+
+      if (
+        typeof sessionStorage !== "undefined" &&
+        inbox.error &&
+        inbox.message &&
+        inbox.emails.length === 0
+      ) {
+        const key = `triton_inbox_warn_${inbox.error}`;
+        if (!sessionStorage.getItem(key)) {
+          sessionStorage.setItem(key, "1");
+          if (inbox.error === "gmail_api_error" || inbox.error === "schema_outdated") {
+            toast.error(inbox.message);
+          } else {
+            toast.info(inbox.message, { duration: 12_000 });
+          }
+        }
+      }
 
       const nextClasses: DashboardClassCard[] = [];
       const personalFilterKey = "Personal";
