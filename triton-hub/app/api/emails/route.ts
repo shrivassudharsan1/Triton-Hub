@@ -56,29 +56,64 @@ async function fetchMessageList(
   return { ok: true, status: 200, ids };
 }
 
+type InboxDebug = {
+  inboxLabelCount: number;
+  inboxLabelStatus: number;
+  fallbackQueryCount: number | null;
+  fallbackQueryStatus: number | null;
+  metadataFetched: number;
+  metadataSucceeded: number;
+};
+
 async function fetchInboxWithAccessToken(accessToken: string) {
+  const debug: InboxDebug = {
+    inboxLabelCount: 0,
+    inboxLabelStatus: 0,
+    fallbackQueryCount: null,
+    fallbackQueryStatus: null,
+    metadataFetched: 0,
+    metadataSucceeded: 0,
+  };
+
+  // Try primary: INBOX label
   const inboxUrl =
     "https://gmail.googleapis.com/gmail/v1/users/me/messages?labelIds=INBOX&maxResults=25";
   const primary = await fetchMessageList(accessToken, inboxUrl);
+  debug.inboxLabelStatus = primary.status;
   if (!primary.ok) {
-    return { ok: false as const, status: primary.status, emails: [] as EmailRow[] };
+    return { ok: false as const, status: primary.status, emails: [] as EmailRow[], debug };
   }
+  debug.inboxLabelCount = primary.ids.length;
 
   let ids = primary.ids;
+
+  // Fallback: q=is:inbox (catches non-standard inbox setups)
   if (ids.length === 0) {
     const qUrl = encodeURIComponent("is:inbox");
     const fallbackUrl = `https://gmail.googleapis.com/gmail/v1/users/me/messages?q=${qUrl}&maxResults=25`;
     const fallback = await fetchMessageList(accessToken, fallbackUrl);
+    debug.fallbackQueryStatus = fallback.status;
+    debug.fallbackQueryCount = fallback.ids.length;
     if (!fallback.ok) {
-      return { ok: false as const, status: fallback.status, emails: [] as EmailRow[] };
+      return { ok: false as const, status: fallback.status, emails: [] as EmailRow[], debug };
     }
     ids = fallback.ids;
   }
 
+  // Tertiary: recent mail (any label) — catches archived-inbox setups
   if (ids.length === 0) {
-    return { ok: true as const, status: 200, emails: [] as EmailRow[] };
+    const anyUrl = "https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=10";
+    const anyList = await fetchMessageList(accessToken, anyUrl);
+    if (anyList.ok && anyList.ids.length > 0) {
+      ids = anyList.ids;
+    }
   }
 
+  if (ids.length === 0) {
+    return { ok: true as const, status: 200, emails: [] as EmailRow[], debug };
+  }
+
+  debug.metadataFetched = ids.length;
   const details = await Promise.all(
     ids.map(async (id) => {
       const r = await fetch(
@@ -101,7 +136,8 @@ async function fetchInboxWithAccessToken(accessToken: string) {
       date: headerFromPayload(msg, "Date") || null,
     });
   }
-  return { ok: true as const, status: 200, emails };
+  debug.metadataSucceeded = emails.length;
+  return { ok: true as const, status: 200, emails, debug };
 }
 
 type EmailRow = {
@@ -254,12 +290,13 @@ async function handleEmails(request: Request) {
         emails: [],
         error: "gmail_api_error",
         message: "Could not load Gmail. Try signing out and signing in again.",
+        debug: result.debug,
       },
       { status: 200 }
     );
   }
 
-  return NextResponse.json({ emails: result.emails });
+  return NextResponse.json({ emails: result.emails, debug: result.debug });
 }
 
 export async function GET() {
